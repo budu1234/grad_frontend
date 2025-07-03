@@ -1,0 +1,51 @@
+name: schedule_planner
+description: "A new Flutter project."
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  table_calendar: ^3.0.9
+  image_picker: ^1.0.4
+  flutter_speed_dial: ^7.0.0
+  flutter_svg: ^1.1.6
+  fl_chart: ^0.64.0
+  auto_size_text: ^3.0.0
+  http: ^1.2.1
+  google_sign_in: ^6.2.1
+  flutter_facebook_auth: ^6.0.4
+  intl: ^0.19.0
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+    
+
+
+  flutter_lints: ^4.0.0
+
+
+flutter:
+
+  uses-material-design: true
+
+  assets:
+      - assets/
+      - assets/img/welcome.png
+      - assets/img/setting.png
+      - assets/img/no_task.png
+      - assets/img/confetti.png
+      - assets/img/settings.png
+      - assets/img/Ellipse_4.png
+      - assets/img/Ellipse_5.png
+      - assets/img/left_blob.png
+      - assets/img/right_blob.png
+      - assets/img/wireframe001.png
+      - assets/img/wireframe002.png
+      - assets/icons/
