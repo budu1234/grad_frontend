@@ -80,11 +80,21 @@ class _PreferredStudySummaryPageState extends State<PreferredStudySummaryPage> {
     }
 
     // Parse preferred working hours and constraint
-    final List<dynamic> preferredHours = userPrefs?['preferred_working_hours'] != null
-        ? jsonDecode(userPrefs!['preferred_working_hours'])
-        : List.generate(7, (d) => [d, 9, 17]);
+    final dynamic rawPref = userPrefs?['preferred_working_hours'];
+    final List<dynamic> preferredHoursRaw = 
+        rawPref == null
+          ? []
+          : (rawPref is String ? jsonDecode(rawPref) : rawPref);
     final dynamic constraintRaw = userPrefs?['working_hours_constraint'];
     final bool hardConstraint = constraintRaw == true || constraintRaw == 1;
+
+    // Build a map for quick lookup
+    Map<int, List<dynamic>> preferredHoursMap = {};
+    for (var entry in preferredHoursRaw) {
+      if (entry is List && entry.length == 3) {
+        preferredHoursMap[entry[0]] = entry;
+      }
+    }
 
     String dayName(int day) {
       const days = [
@@ -102,7 +112,7 @@ class _PreferredStudySummaryPageState extends State<PreferredStudySummaryPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: CustomDrawer(jwtToken: widget.jwtToken),
+      drawer: CustomDrawer(jwtToken: widget.jwtToken, currentPage: DrawerPage.editPreferences),
       appBar: AppBar(
         title: const Text("Preference"),
         backgroundColor: Colors.white,
@@ -126,15 +136,48 @@ class _PreferredStudySummaryPageState extends State<PreferredStudySummaryPage> {
               ],
             ),
             const SizedBox(height: 8),
-            for (var entry in preferredHours)
+            for (int day = 0; day < 7; day++)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(dayName(entry[0])),
-                    Text("${entry[1]}:00"),
-                    Text("${entry[2]}:00"),
+                    Expanded(
+                      flex: 2,
+                      child: Text(dayName(day), textAlign: TextAlign.left),
+                    ),
+                    if (preferredHoursMap.containsKey(day)) ...[
+                      SizedBox(
+                        width: 230,
+                        child: Text(
+                          "${preferredHoursMap[day]![1]}:00",
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 60,
+                        child: Text(
+                          "${preferredHoursMap[day]![2]}:00",
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ] else ...[
+                      SizedBox(
+                        width: 230,
+                        child: Text(
+                          "Day Off",
+                          style: TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 60,
+                        child: Text(
+                          "Day Off",
+                          style: TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ]
                   ],
                 ),
               ),
@@ -196,7 +239,7 @@ class _PreferredStudySummaryPageState extends State<PreferredStudySummaryPage> {
                         MaterialPageRoute(
                           builder: (context) => PreferredStudyHoursInputPage(
                             jwtToken: widget.jwtToken,
-                            initialPreferredHours: preferredHours,
+                            initialPreferredHours: preferredHoursRaw,
                             initialHardConstraint: hardConstraint,
                             initialGeneralStartHour: generalStartHour,
                             initialGeneralEndHour: generalEndHour,

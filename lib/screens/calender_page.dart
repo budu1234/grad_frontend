@@ -17,7 +17,7 @@ class CalenderPage extends StatefulWidget {
 
 class _CalenderPageState extends State<CalenderPage> {
   DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
+  DateTime? _selectedDay = DateTime.now();
   late Future<List<ScheduledTask>> _futureSchedule;
   Map<DateTime, List<ScheduledTask>> _events = {};
 
@@ -80,8 +80,7 @@ class _CalenderPageState extends State<CalenderPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: CustomDrawer(jwtToken: widget.jwtToken),
-      appBar: AppBar(
+        drawer: CustomDrawer(jwtToken: widget.jwtToken, currentPage: DrawerPage.home),      appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: Builder(

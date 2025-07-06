@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:schedule_planner/screens/home_page.dart';
+import 'package:schedule_planner/screens/calender_page.dart';
 
 class CongratulationsPage extends StatelessWidget {
   final String jwtToken;
@@ -72,11 +72,12 @@ class CongratulationsPage extends StatelessWidget {
                       onPressed: () {
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (_) => HomePage(jwtToken: jwtToken)),
+                          MaterialPageRoute(builder: (_) => CalenderPage(jwtToken: jwtToken)),
                         );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF298267),
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),

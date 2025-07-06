@@ -26,7 +26,7 @@ class _PreferredStudyHoursInputPageState extends State<PreferredStudyHoursInputP
   final Color mainColor = const Color(0xFF35746C);
 
   final List<String> days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  List<List<int>> preferredHours = [];
+  List<Map<String, dynamic>> preferredHours = [];
   bool hardConstraint = false;
   bool isLoading = false;
 
@@ -34,7 +34,7 @@ class _PreferredStudyHoursInputPageState extends State<PreferredStudyHoursInputP
   int generalStartHour = 8;
   int generalEndHour = 22;
 
-  // Breaks: Map<day_of_week, List<[start_hour, end_hour]>>
+  // Breaks: Map<day_of_week, List<[start_hour, end_hour, id]>>
   Map<int, List<List<int>>> breaks = {};
 
   List<int> hourOptions = List.generate(24, (i) => i);
@@ -42,11 +42,32 @@ class _PreferredStudyHoursInputPageState extends State<PreferredStudyHoursInputP
   @override
   void initState() {
     super.initState();
+    // Build preferredHours as a list of maps for each day
+    Map<int, List<int>> initialMap = {};
     if (widget.initialPreferredHours != null) {
-      preferredHours = List<List<int>>.from(widget.initialPreferredHours!.map((e) => List<int>.from(e)));
-    } else {
-      preferredHours = List.generate(7, (i) => [i, 9, 17]);
+      for (var entry in widget.initialPreferredHours!) {
+        if (entry is List && entry.length == 3) {
+          initialMap[entry[0]] = [entry[1], entry[2]];
+        }
+      }
     }
+    preferredHours = List.generate(7, (i) {
+      if (initialMap.containsKey(i)) {
+        return {
+          "day": i,
+          "start": initialMap[i]![0],
+          "end": initialMap[i]![1],
+          "dayOff": false,
+        };
+      } else {
+        return {
+          "day": i,
+          "start": generalStartHour,
+          "end": generalStartHour + 1,
+          "dayOff": true,
+        };
+      }
+    });
     hardConstraint = widget.initialHardConstraint ?? false;
     generalStartHour = widget.initialGeneralStartHour ?? 8;
     generalEndHour = widget.initialGeneralEndHour ?? 22;
@@ -72,7 +93,32 @@ class _PreferredStudyHoursInputPageState extends State<PreferredStudyHoursInputP
   }
 
   Future<void> savePreferences() async {
+    // Validation: general hours must be greater than or equal to all preferred hours
+    for (final d in preferredHours) {
+      if (d['dayOff'] == true) continue;
+      final int start = d['start'] as int;
+      final int end = d['end'] as int;
+      if (generalStartHour > start || generalEndHour < end) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("General working hours must be greater than or equal to all preferred working hours for all days."),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return; // Stop submission
+      }
+    }
+
     setState(() => isLoading = true);
+    // Only include days that are not day off
+    final List<List<int>> toSend = preferredHours
+        .where((d) => d['dayOff'] == false)
+        .map((d) => [
+          (d['day'] as int),
+          (d['start'] as int),
+          (d['end'] as int),
+        ])
+        .toList();
     final response = await http.patch(
       Uri.parse('http://10.0.2.2:5000/users/preferences'),
       headers: {
@@ -80,7 +126,7 @@ class _PreferredStudyHoursInputPageState extends State<PreferredStudyHoursInputP
         'Content-Type': 'application/json',
       },
       body: jsonEncode({
-        'preferred_working_hours': preferredHours,
+        'preferred_working_hours': toSend,
         'working_hours_constraint': hardConstraint,
         'general_start_hour': generalStartHour,
         'general_end_hour': generalEndHour,
@@ -163,6 +209,11 @@ class _PreferredStudyHoursInputPageState extends State<PreferredStudyHoursInputP
                         if (generalEndHour <= generalStartHour) {
                           generalEndHour = generalStartHour + 1 <= 23 ? generalStartHour + 1 : 23;
                         }
+                        // Also update preferredHours if needed
+                        for (var d in preferredHours) {
+                          if ((d['start'] as int) < generalStartHour) d['start'] = generalStartHour;
+                          if ((d['end'] as int) <= d['start']) d['end'] = d['start'] + 1 <= generalEndHour ? d['start'] + 1 : generalEndHour;
+                        }
                       });
                     },
                   ),
@@ -170,7 +221,6 @@ class _PreferredStudyHoursInputPageState extends State<PreferredStudyHoursInputP
                   const Text("Latest: "),
                   Builder(
                     builder: (context) {
-                      // Ensure generalEndHour is always valid
                       final endHourOptions = hourOptions.where((h) => h > generalStartHour).toList();
                       if (!endHourOptions.contains(generalEndHour)) {
                         generalEndHour = endHourOptions.isNotEmpty ? endHourOptions.first : generalStartHour + 1;
@@ -182,6 +232,12 @@ class _PreferredStudyHoursInputPageState extends State<PreferredStudyHoursInputP
                         onChanged: (val) {
                           setState(() {
                             generalEndHour = val!;
+                            // Also update preferredHours if needed
+                            for (var d in preferredHours) {
+                              if ((d['end'] as int) > generalEndHour) d['end'] = generalEndHour;
+                              if ((d['start'] as int) >= generalEndHour) d['start'] = generalEndHour - 1;
+                              if ((d['end'] as int) <= d['start']) d['end'] = d['start'] + 1 <= generalEndHour ? d['start'] + 1 : generalEndHour;
+                            }
                           });
                         },
                       );
@@ -199,43 +255,71 @@ class _PreferredStudyHoursInputPageState extends State<PreferredStudyHoursInputP
                     children: [
                       SizedBox(width: 90, child: Text(days[i])),
                       const SizedBox(width: 8),
-                      Builder(
-                        builder: (context) {
-                          final startOptions = hourOptions.where((h) => h >= generalStartHour && h < generalEndHour).toList();
-                          if (!startOptions.contains(preferredHours[i][1])) {
-                            preferredHours[i][1] = startOptions.isNotEmpty ? startOptions.first : generalStartHour;
-                          }
-                          return DropdownButton<int>(
-                            value: preferredHours[i][1],
-                            items: startOptions
-                                .map((h) => DropdownMenuItem(value: h, child: Text("${h.toString().padLeft(2, '0')}:00"))).toList(),
-                            onChanged: (val) {
-                              setState(() => preferredHours[i][1] = val!);
-                              // Ensure end is always after start
-                              if (preferredHours[i][2] <= preferredHours[i][1]) {
-                                preferredHours[i][2] = preferredHours[i][1] + 1 <= generalEndHour ? preferredHours[i][1] + 1 : generalEndHour;
-                              }
-                            },
-                          );
+                      Checkbox(
+                        value: preferredHours[i]['dayOff'] ?? false,
+                        onChanged: (val) {
+                          setState(() {
+                            preferredHours[i]['dayOff'] = val ?? false;
+                            if (val == true) {
+                              preferredHours[i]['start'] = generalStartHour;
+                              preferredHours[i]['end'] = generalStartHour + 1 <= generalEndHour ? generalStartHour + 1 : generalEndHour;
+                            }
+                          });
                         },
                       ),
+                      const Text("Day Off"),
                       const SizedBox(width: 8),
-                      Builder(
-                        builder: (context) {
-                          final endOptions = hourOptions.where((h) => h > preferredHours[i][1] && h <= generalEndHour).toList();
-                          if (!endOptions.contains(preferredHours[i][2])) {
-                            preferredHours[i][2] = endOptions.isNotEmpty ? endOptions.first : preferredHours[i][1] + 1;
-                          }
-                          return DropdownButton<int>(
-                            value: preferredHours[i][2],
-                            items: endOptions
-                                .map((h) => DropdownMenuItem(value: h, child: Text("${h.toString().padLeft(2, '0')}:00"))).toList(),
-                            onChanged: (val) {
-                              setState(() => preferredHours[i][2] = val!);
+                      if (!(preferredHours[i]['dayOff'] ?? false))
+                        ...[
+                          Builder(
+                            builder: (context) {
+                              final startOptions = hourOptions
+                                  .where((h) => h >= generalStartHour && h < generalEndHour)
+                                  .toList();
+                              if (!startOptions.contains(preferredHours[i]['start'])) {
+                                preferredHours[i]['start'] = startOptions.isNotEmpty ? startOptions.first : generalStartHour;
+                              }
+                              return DropdownButton<int>(
+                                value: preferredHours[i]['start'],
+                                items: startOptions
+                                    .map((h) => DropdownMenuItem(value: h, child: Text("${h.toString().padLeft(2, '0')}:00"))).toList(),
+                                onChanged: (val) {
+                                  setState(() {
+                                    preferredHours[i]['start'] = val!;
+                                    // Adjust end if needed
+                                    if (preferredHours[i]['end'] <= preferredHours[i]['start']) {
+                                      final endOptions = hourOptions
+                                          .where((h) => h > preferredHours[i]['start'] && h <= generalEndHour)
+                                          .toList();
+                                      preferredHours[i]['end'] = endOptions.isNotEmpty ? endOptions.first : preferredHours[i]['start'] + 1;
+                                    }
+                                  });
+                                },
+                              );
                             },
-                          );
-                        },
-                      ),
+                          ),
+                          const SizedBox(width: 8),
+                          Builder(
+                            builder: (context) {
+                              final endOptions = hourOptions
+                                  .where((h) => h > preferredHours[i]['start'] && h <= generalEndHour)
+                                  .toList();
+                              if (!endOptions.contains(preferredHours[i]['end'])) {
+                                preferredHours[i]['end'] = endOptions.isNotEmpty ? endOptions.first : preferredHours[i]['start'] + 1;
+                              }
+                              return DropdownButton<int>(
+                                value: preferredHours[i]['end'],
+                                items: endOptions
+                                    .map((h) => DropdownMenuItem(value: h, child: Text("${h.toString().padLeft(2, '0')}:00"))).toList(),
+                                onChanged: (val) {
+                                  setState(() {
+                                    preferredHours[i]['end'] = val!;
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                        ]
                     ],
                   ),
                 ),

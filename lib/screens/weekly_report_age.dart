@@ -14,26 +14,33 @@ class WeeklyReportPage extends StatefulWidget {
 }
 
 class _WeeklyReportPageState extends State<WeeklyReportPage> {
-  late Future<List<ScheduledTask>> _futureSchedule;
+  late Future<List<ScheduledTask>> _futureAllWeeklyTasks;
 
   @override
   void initState() {
     super.initState();
-    _futureSchedule = fetchSchedule();
+    _futureAllWeeklyTasks = fetchAllWeeklyTasks();
   }
 
-  Future<List<ScheduledTask>> fetchSchedule() async {
-    final response = await http.get(
+  // Fetch both pending and completed scheduled tasks and combine them
+  Future<List<ScheduledTask>> fetchAllWeeklyTasks() async {
+    final pendingResponse = await http.get(
       Uri.parse('http://10.0.2.2:5000/schedule/'),
       headers: {'Authorization': 'Bearer ${widget.jwtToken}'},
     );
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final List scheduled = data['scheduled'] ?? [];
-      return scheduled.map((e) => ScheduledTask.fromJson(e)).toList();
-    } else {
-      return [];
-    }
+    final completedResponse = await http.get(
+      Uri.parse('http://10.0.2.2:5000/schedule/completed'),
+      headers: {'Authorization': 'Bearer ${widget.jwtToken}'},
+    );
+
+    final pending = (jsonDecode(pendingResponse.body)['scheduled'] ?? [])
+        .map<ScheduledTask>((e) => ScheduledTask.fromJson(e))
+        .toList();
+    final completed = (jsonDecode(completedResponse.body)['completed'] ?? [])
+        .map<ScheduledTask>((e) => ScheduledTask.fromJson(e))
+        .toList();
+
+    return [...pending, ...completed];
   }
 
   // Helper to get start of week (Monday)
@@ -44,7 +51,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: CustomDrawer(jwtToken: widget.jwtToken),
+      drawer: CustomDrawer(jwtToken: widget.jwtToken, currentPage: DrawerPage.weeklyReport),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -68,7 +75,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       ),
       body: SafeArea(
         child: FutureBuilder<List<ScheduledTask>>(
-          future: _futureSchedule,
+          future: _futureAllWeeklyTasks,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -86,17 +93,22 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                 task.slotStart.isAfter(startOfWeek.subtract(const Duration(seconds: 1))) &&
                 task.slotStart.isBefore(endOfWeek)).toList();
 
-            // Count completed and pending
-            final int completed = weekTasks.where((t) =>
+            // Separate completed and pending
+            final completedTasks = weekTasks.where((t) =>
               (t.status == 'completed') || (t.isChecked == true)
-            ).length;
-            final int pending = weekTasks.length - completed;
+            ).toList();
+            final pendingTasks = weekTasks.where((t) =>
+              !(t.status == 'completed' || t.isChecked == true)
+            ).toList();
+
+            final int completed = completedTasks.length;
+            final int pending = pendingTasks.length;
             final int total = weekTasks.length;
 
             final double completedPercent = total == 0 ? 0 : (completed / total) * 100;
             final double pendingPercent = total == 0 ? 0 : (pending / total) * 100;
 
-            return Center(
+            return SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -171,6 +183,58 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                       "Total tasks this week: $total",
                       style: const TextStyle(fontSize: 16),
                     ),
+                    const SizedBox(height: 20),
+                    // Pending Tasks List
+                    if (pendingTasks.isNotEmpty) ...[
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Pending Tasks",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...pendingTasks.map((task) => Card(
+                            child: ListTile(
+                              leading: const Icon(Icons.pending_actions, color: Colors.red),
+                              title: Text(task.taskName),
+                              subtitle: Text(
+                                "${task.slotStart != null ? "${task.slotStart.hour.toString().padLeft(2, '0')}:${task.slotStart.minute.toString().padLeft(2, '0')}" : ""} - "
+                                "${task.slotEnd != null ? "${task.slotEnd.hour.toString().padLeft(2, '0')}:${task.slotEnd.minute.toString().padLeft(2, '0')}" : ""}",
+                              ),
+                            ),
+                          )),
+                      const SizedBox(height: 20),
+                    ],
+                    // Completed Tasks List
+                    if (completedTasks.isNotEmpty) ...[
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Completed Tasks",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...completedTasks.map((task) => Card(
+                            child: ListTile(
+                              leading: const Icon(Icons.check_circle, color: Colors.green),
+                              title: Text(
+                                task.taskName,
+                                style: const TextStyle(decoration: TextDecoration.lineThrough),
+                              ),
+                              subtitle: Text(
+                                "${task.slotStart != null ? "${task.slotStart.hour.toString().padLeft(2, '0')}:${task.slotStart.minute.toString().padLeft(2, '0')}" : ""} - "
+                                "${task.slotEnd != null ? "${task.slotEnd.hour.toString().padLeft(2, '0')}:${task.slotEnd.minute.toString().padLeft(2, '0')}" : ""}",
+                              ),
+                            ),
+                          )),
+                    ],
+                    if (pendingTasks.isEmpty && completedTasks.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 24.0),
+                        child: Text('No tasks this week.'),
+                      ),
                   ],
                 ),
               ),

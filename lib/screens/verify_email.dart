@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:schedule_planner/screens/questionnaire_wizard.dart';
-import 'package:schedule_planner/screens/after_signup_page.dart';
 
 class VerifyEmailPage extends StatefulWidget {
   final String email;
@@ -41,7 +40,7 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
     if (response.statusCode == 200) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => QuestionnairePage(jwtToken: widget.jwtToken)),
+        MaterialPageRoute(builder: (context) => QuestionnaireWizard(jwtToken: widget.jwtToken)),
       );
     } else {
       setState(() {

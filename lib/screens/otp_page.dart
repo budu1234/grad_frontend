@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:schedule_planner/screens/calender_page.dart';
 import 'dart:convert';
-import 'package:schedule_planner/screens/home_page.dart';
 
 class ConfirmationCodePage extends StatefulWidget {
   final String jwtToken;
@@ -59,7 +59,7 @@ class _ConfirmationCodePageState extends State<ConfirmationCodePage> {
     if (response.statusCode == 200) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => HomePage(jwtToken: widget.jwtToken)),
+        MaterialPageRoute(builder: (context) => CalenderPage(jwtToken: widget.jwtToken)),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

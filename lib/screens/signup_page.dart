@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:schedule_planner/screens/after_signup_page.dart';
 import 'dart:convert';
-import 'package:schedule_planner/screens/questionnaire_wizard.dart';
+import 'package:schedule_planner/screens/verify_email.dart';
 
 class SignUpPage extends StatefulWidget {
   @override
@@ -63,7 +62,9 @@ class _SignUpPageState extends State<SignUpPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => QuestionnairePage(jwtToken: token),
+          builder: (context) => VerifyEmailPage(
+            email: emailController.text,
+            jwtToken: token),
         ),
       );
     } else {
@@ -282,30 +283,32 @@ class _SignUpPageState extends State<SignUpPage> {
                   ],
                 ),
                 SizedBox(height: screenHeight * 0.04),
-                SizedBox(
-                  width: screenWidth * 0.6,
-                  child: ElevatedButton(
-                    onPressed: isLoading
-                        ? null
-                        : () {
-                            registerUser(context);
-                          },
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: screenHeight * 0.02),
-                      backgroundColor: const Color(0xFF298267),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+                Center(
+                  child: SizedBox(
+                    width: screenWidth * 0.6,
+                    child: ElevatedButton(
+                      onPressed: isLoading
+                          ? null
+                          : () {
+                              registerUser(context);
+                            },
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: screenHeight * 0.02),
+                        backgroundColor: const Color(0xFF298267),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
                       ),
-                    ),
-                    child: isLoading
-                        ? CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                            'Sign Up',
-                            style: TextStyle(
-                              fontSize: screenWidth * 0.04,
-                              color: Colors.white,
+                      child: isLoading
+                          ? CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                              'Sign Up',
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.04,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
+                    ),
                   ),
                 ),
                 SizedBox(height: screenHeight * 0.04),

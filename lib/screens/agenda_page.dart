@@ -1,3 +1,4 @@
+// ...existing imports...
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
@@ -59,6 +60,22 @@ class _AgendaPageState extends State<AgendaPage> {
     }
   }
 
+  Future<void> deleteTask(int taskId) async {
+    final response = await http.delete(
+      Uri.parse('http://10.0.2.2:5000/tasks/$taskId'),
+      headers: {
+        'Authorization': 'Bearer ${widget.jwtToken}',
+      },
+    );
+    if (response.statusCode == 200) {
+      setState(() {
+        _futureSchedule = fetchSchedule();
+      });
+    } else {
+      print('Failed to delete task: ${response.body}');
+    }
+  }
+
   // Group tasks by date (yyyy-MM-dd)
   Map<String, List<ScheduledTask>> groupTasksByDate(List<ScheduledTask> tasks) {
     Map<String, List<ScheduledTask>> grouped = {};
@@ -69,11 +86,106 @@ class _AgendaPageState extends State<AgendaPage> {
     return grouped;
   }
 
+  void _showTaskDetailDialog(ScheduledTask task) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final isCompleted = (task.status == 'completed') || (task.isChecked == true);
+        return AlertDialog(
+          title: Text(task.taskName),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${DateFormat('EEEE, MMM d, yyyy').format(task.slotStart)}\n'
+                '${DateFormat('hh:mm a').format(task.slotStart)} - ${DateFormat('hh:mm a').format(task.slotEnd)}',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              Text('Importance: ${task.importance}'),
+              Text('Difficulty: ${task.difficulty}'),
+              if ((task.overdue ?? false) == true)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8.0),
+                  child: Text('Overdue!', style: TextStyle(color: Colors.red)),
+                ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Checkbox(
+                    value: isCompleted,
+                    onChanged: (val) {
+                      Navigator.pop(context);
+                      updateTaskStatus(task.taskId, val ?? false);
+                    },
+                  ),
+                  const Text('Mark as completed'),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddTaskPage(
+                      jwtToken: widget.jwtToken,
+                      initialTask: task.toJson(),
+                    ),
+                  ),
+                ).then((result) {
+                  setState(() {
+                    _futureSchedule = fetchSchedule();
+                  });
+                });
+              },
+              child: const Text('Edit'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Delete Task'),
+                    content: const Text('Are you sure you want to delete this task?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await deleteTask(task.taskId);
+                }
+              },
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: CustomDrawer(jwtToken: widget.jwtToken),
+      drawer: CustomDrawer(jwtToken: widget.jwtToken, currentPage: DrawerPage.agenda),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -145,11 +257,14 @@ class _AgendaPageState extends State<AgendaPage> {
                       color: isOverdue ? Colors.red[50] : null,
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       child: ListTile(
-                        leading: Checkbox(
-                          value: isCompleted,
-                          onChanged: (val) {
-                            updateTaskStatus(item.taskId, val ?? false);
-                          },
+                        leading: Tooltip(
+                          message: "Mark as completed",
+                          child: Checkbox(
+                            value: isCompleted,
+                            onChanged: (val) {
+                              updateTaskStatus(item.taskId, val ?? false);
+                            },
+                          ),
                         ),
                         title: Row(
                           children: [
@@ -179,6 +294,7 @@ class _AgendaPageState extends State<AgendaPage> {
                             fontWeight: isOverdue ? FontWeight.bold : null,
                           ),
                         ),
+                        onTap: () => _showTaskDetailDialog(item),
                       ),
                     );
                   }).toList(),

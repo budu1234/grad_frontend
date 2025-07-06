@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:schedule_planner/screens/congratulations_page.dart';
+import 'package:schedule_planner/screens/home_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -16,6 +16,8 @@ class AddProfilePage extends StatefulWidget {
 class _AddProfilePageState extends State<AddProfilePage> {
   File? _image;
   bool _isUploading = false;
+  final TextEditingController _nameController = TextEditingController();
+  String? _profilePicUrl;
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -27,34 +29,69 @@ class _AddProfilePageState extends State<AddProfilePage> {
     }
   }
 
-  Future<void> _uploadProfilePicture(File image) async {
+  Future<void> _updateProfile() async {
     setState(() => _isUploading = true);
-    final uri = Uri.parse('http://10.0.2.2:5000/users/upload_profile_picture');
-    final request = http.MultipartRequest('POST', uri)
-      ..headers['Authorization'] = 'Bearer ${widget.jwtToken}'
-      ..files.add(await http.MultipartFile.fromPath('file', image.path));
-    final response = await request.send();
-    setState(() => _isUploading = false);
-    if (response.statusCode == 200) {
-      // Optionally handle response if you want to use the returned URL
+
+    try {
+      // Update name
+      if (_nameController.text.isNotEmpty) {
+        final response = await http.put(
+          Uri.parse('http://10.0.2.2:5000/users/update_name'),
+          headers: {
+            'Authorization': 'Bearer ${widget.jwtToken}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'name': _nameController.text}),
+        );
+        if (response.statusCode != 200) {
+          throw Exception('Failed to update name');
+        }
+      }
+
+      // Update profile picture
+      if (_image != null) {
+        final uri = Uri.parse('http://10.0.2.2:5000/users/upload_profile_picture');
+        final request = http.MultipartRequest('POST', uri)
+          ..headers['Authorization'] = 'Bearer ${widget.jwtToken}'
+          ..files.add(await http.MultipartFile.fromPath('file', _image!.path));
+        final response = await request.send();
+        if (response.statusCode != 200) {
+          throw Exception('Failed to upload profile picture');
+        }
+      }
+
+      setState(() => _isUploading = false);
+
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomePage(jwtToken: widget.jwtToken),
+        ),
+        (route) => false,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully!')),
+      );
+    } catch (e) {
+      setState(() => _isUploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Update failed: ${e.toString()}')),
+      );
     }
   }
 
-  void _goToCongrats() async {
-    if (_image != null) {
-      await _uploadProfilePicture(_image!);
-    }
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => CongratulationsPage(jwtToken: widget.jwtToken)),
-    );
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Add Profile"),
+        title: const Text("Edit Profile"),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
@@ -64,11 +101,11 @@ class _AddProfilePageState extends State<AddProfilePage> {
           children: [
             const SizedBox(height: 40),
             const Text(
-              'Add your Profile',
+              'Edit your Profile',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             Text(
-              'Add your profile picture to complete your account setup and personalize your experience!',
+              'Update your name and profile picture to personalize your experience!',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey[600]),
             ),
@@ -84,27 +121,26 @@ class _AddProfilePageState extends State<AddProfilePage> {
                     : null,
               ),
             ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: "Name",
+                border: OutlineInputBorder(),
+              ),
+            ),
             const Spacer(),
             ElevatedButton(
-              onPressed: _isUploading ? null : _goToCongrats,
+              onPressed: _isUploading ? null : _updateProfile,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF298267),
+                foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: _isUploading
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Add profile"),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: _isUploading ? null : _goToCongrats,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                side: const BorderSide(color: Color(0xFF298267)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text("Add later"),
+                  : const Text("Save Changes"),
             ),
             const SizedBox(height: 30),
           ],

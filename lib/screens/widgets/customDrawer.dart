@@ -3,7 +3,6 @@ import 'package:schedule_planner/screens/agenda_page.dart';
 import 'package:schedule_planner/screens/calender_page.dart';
 import 'package:schedule_planner/screens/home_page.dart';
 import 'package:schedule_planner/screens/login_page.dart';
-import 'package:schedule_planner/screens/search_page.dart';
 import 'package:schedule_planner/screens/setting_page.dart';
 import 'package:schedule_planner/screens/weekly_report_age.dart';
 import 'package:schedule_planner/screens/preferred_study_hours_page.dart';
@@ -12,9 +11,21 @@ import 'package:schedule_planner/screens/weekly_schedule_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+enum DrawerPage {
+  home,
+  weeklySchedule,
+  checklist,
+  agenda,
+  weeklyReport,
+  editPreferences,
+  profile,
+  settings,
+}
+
 class CustomDrawer extends StatefulWidget {
   final String jwtToken;
-  const CustomDrawer({super.key, required this.jwtToken});
+  final DrawerPage currentPage;
+  const CustomDrawer({super.key, required this.jwtToken, required this.currentPage});
 
   @override
   State<CustomDrawer> createState() => _CustomDrawerState();
@@ -81,7 +92,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               radius: 24,
                               backgroundColor: Colors.grey[200],
                               backgroundImage: user?['profile_picture'] != null
-                                  ? NetworkImage('http://10.0.2.2:5000/static/profile_pics/${user!['profile_picture']}')
+                                  ? NetworkImage('http://10.0.2.2:5000/static/profile_pics/${user!['profile_picture']}?v=${DateTime.now().millisecondsSinceEpoch}')
                                   : null,
                               child: user?['profile_picture'] == null
                                   ? Icon(Icons.person, color: Colors.grey[600])
@@ -124,74 +135,59 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       context,
                       Icons.home,
                       "Home",
-                      destination: MaterialPageRoute(builder: (context) => HomePage(jwtToken: widget.jwtToken)),
-                    ),
-                    _buildDrawerItem(
-                      context,
-                      Icons.check_box,
-                      "Agenda",
-                      destination: MaterialPageRoute(builder: (context) => AgendaPage(jwtToken: widget.jwtToken)),
-                    ),
-                    _buildDrawerItem(
-                      context,
-                      Icons.calendar_today,
-                      "Calendar",
+                      page: DrawerPage.home,
                       destination: MaterialPageRoute(builder: (context) => CalenderPage(jwtToken: widget.jwtToken)),
                     ),
                     _buildDrawerItem(
                       context,
-                      Icons.bar_chart,
+                      Icons.calendar_today,
+                      "Weekly Schedule",
+                      page: DrawerPage.weeklySchedule,
+                      destination: MaterialPageRoute(builder: (context) => WeeklySchedulePage(jwtToken: widget.jwtToken)),
+                    ),
+                    _buildDrawerItem(
+                      context,
+                      Icons.check_box,
+                      "Checklist",
+                      page: DrawerPage.checklist,
+                      destination: MaterialPageRoute(builder: (context) => HomePage(jwtToken: widget.jwtToken)),
+                    ),
+                    _buildDrawerItem(
+                      context,
+                      Icons.list,
+                      "Agenda",
+                      page: DrawerPage.agenda,
+                      destination: MaterialPageRoute(builder: (context) => AgendaPage(jwtToken: widget.jwtToken)),
+                    ),
+                    _buildDrawerItem(
+                      context,
+                      Icons.access_time,
                       "Weekly report",
+                      page: DrawerPage.weeklyReport,
                       destination: MaterialPageRoute(builder: (context) => WeeklyReportPage(jwtToken: widget.jwtToken)),
                     ),
                     _buildDrawerItem(
                       context,
-                      Icons.settings,
-                      "Settings",
-                      destination: MaterialPageRoute(builder: (context) => SettingsScreen(jwtToken: widget.jwtToken)),
+                      Icons.edit_note,
+                      "Edit Preferences",
+                      page: DrawerPage.editPreferences,
+                      destination: MaterialPageRoute(builder: (context) => PreferredStudySummaryPage(jwtToken: widget.jwtToken)),
                     ),
                     _buildDrawerItem(
                       context,
                       Icons.person,
                       "Profile",
+                      page: DrawerPage.profile,
                       destination: MaterialPageRoute(builder: (context) => AddProfilePage(jwtToken: widget.jwtToken)),
                     ),
                     _buildDrawerItem(
                       context,
-                      Icons.view_week,
-                      "Weekly Schedule",
-                      destination: MaterialPageRoute(builder: (context) => WeeklySchedulePage(jwtToken: widget.jwtToken)),
+                      Icons.settings,
+                      "Settings",
+                      page: DrawerPage.settings,
+                      destination: MaterialPageRoute(builder: (context) => SettingsScreen(jwtToken: widget.jwtToken)),
                     ),
-                    _buildDrawerItem(
-                      context,
-                      Icons.access_time,
-                      "Preferred Study Hours",
-                      destination: MaterialPageRoute(builder: (context) => PreferredStudySummaryPage(jwtToken: widget.jwtToken)),
-                    ),
-                    _buildDrawerItem(
-                      context,
-                      Icons.notifications,
-                      "Reminder",
-                      destination: MaterialPageRoute(builder: (context) => const PlaceholderPage(title: "Reminder")),
-                    ),
-                    _buildDrawerItem(
-                      context,
-                      Icons.search,
-                      "Search",
-                      destination: MaterialPageRoute(builder: (context) => SearchPage(jwtToken: widget.jwtToken)),
-                    ),
-                    _buildDrawerItem(
-                      context,
-                      Icons.book,
-                      "Subjects",
-                      destination: MaterialPageRoute(builder: (context) => const PlaceholderPage(title: "Subjects")),
-                    ),
-                    _buildDrawerItem(
-                      context,
-                      Icons.help_outline,
-                      "Help & Feedback",
-                      destination: MaterialPageRoute(builder: (context) => const PlaceholderPage(title: "Help & Feedback")),
-                    ),
+                    
                   ],
                 ),
               ),
@@ -229,33 +225,39 @@ class _CustomDrawerState extends State<CustomDrawer> {
       BuildContext context,
       IconData icon,
       String title, {
-        bool isLogout = false,
+        required DrawerPage page,
         Route? destination,
         VoidCallback? onTap,
       }) {
+    final bool isSelected = widget.currentPage == page;
     return ListTile(
       leading: Padding(
         padding: const EdgeInsets.only(right: 12.0),
         child: Icon(
           icon,
-          color: title == "Home" ? const Color(0xFF35746C) : Colors.grey[600],
+          color: isSelected ? const Color(0xFF35746C) : Colors.grey[600],
           size: 24,
         ),
       ),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 16,
-          color: Colors.black87,
-          fontWeight: FontWeight.w500,
+          color: isSelected ? const Color(0xFF35746C) : Colors.black87,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
         ),
       ),
-      onTap: onTap ?? () {
-        Navigator.pop(context);
-        if (destination != null) {
-          Navigator.push(context, destination);
-        }
-      },
+      tileColor: isSelected ? const Color(0xFFD9EDE6) : null,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      onTap: onTap ??
+          () {
+            Navigator.pop(context);
+            if (destination != null && !isSelected) {
+              Navigator.push(context, destination);
+            }
+          },
     );
   }
 

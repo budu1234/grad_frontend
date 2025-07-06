@@ -17,6 +17,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
   final TextEditingController _commentController = TextEditingController();
 
   DateTime? _deadlineDate;
+  TimeOfDay? _deadlineTime;
   String _importance = 'Medium';
   String _difficulty = 'Medium';
   bool isLoading = false;
@@ -29,14 +30,18 @@ class _AddTaskPageState extends State<AddTaskPage> {
       _titleController.text = t['task_name'] ?? t['name'] ?? '';
       _importance = t['importance'] ?? 'Medium';
       _difficulty = t['difficulty'] ?? 'Medium';
-      _deadlineDate = t['deadline'] != null
-          ? DateTime.tryParse(t['deadline'])
-          : null;
+      if (t['deadline'] != null) {
+        final dt = DateTime.tryParse(t['deadline']);
+        if (dt != null) {
+          _deadlineDate = DateTime(dt.year, dt.month, dt.day);
+          _deadlineTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
+        }
+      }
       _commentController.text = t['comment'] ?? '';
     }
   }
 
-  Future<void> _pickDeadline(BuildContext context) async {
+  Future<void> _pickDeadlineDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _deadlineDate ?? DateTime.now().add(const Duration(days: 1)),
@@ -50,14 +55,35 @@ class _AddTaskPageState extends State<AddTaskPage> {
     }
   }
 
+  Future<void> _pickDeadlineTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _deadlineTime ?? const TimeOfDay(hour: 23, minute: 59),
+    );
+    if (picked != null) {
+      setState(() {
+        _deadlineTime = picked;
+      });
+    }
+  }
+
   Future<void> _saveTask() async {
-    if (_titleController.text.trim().isEmpty || _deadlineDate == null) {
+    if (_titleController.text.trim().isEmpty || _deadlineDate == null || _deadlineTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a title and deadline')),
+        const SnackBar(content: Text('Please enter a title, deadline date, and time')),
       );
       return;
     }
     setState(() => isLoading = true);
+
+    // Combine date and time into a single DateTime
+    final DateTime deadline = DateTime.utc(
+      _deadlineDate!.year,
+      _deadlineDate!.month,
+      _deadlineDate!.day,
+      _deadlineTime!.hour,
+      _deadlineTime!.minute,
+    );
 
     final isEditing = widget.initialTask != null;
     final url = isEditing
@@ -65,7 +91,7 @@ class _AddTaskPageState extends State<AddTaskPage> {
         : 'http://10.0.2.2:5000/tasks/';
     final body = jsonEncode({
       'name': _titleController.text.trim(),
-      'deadline': _deadlineDate!.toIso8601String(),
+      'deadline': deadline.toIso8601String(),
       'importance': _importance,
       'difficulty': _difficulty,
       'comment': _commentController.text.trim(),
@@ -194,17 +220,35 @@ class _AddTaskPageState extends State<AddTaskPage> {
                   ),
                   Divider(color: dividerColor, height: 32),
 
-                  // Deadline picker
+                  // Deadline date picker
                   InkWell(
-                    onTap: () => _pickDeadline(context),
+                    onTap: () => _pickDeadlineDate(context),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, color: Colors.black54),
+                        const SizedBox(width: 8),
+                        Text(
+                          _deadlineDate == null
+                              ? 'Pick Deadline Date'
+                              : '${_deadlineDate!.day}/${_deadlineDate!.month}/${_deadlineDate!.year}',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Deadline time picker
+                  InkWell(
+                    onTap: () => _pickDeadlineTime(context),
                     child: Row(
                       children: [
                         const Icon(Icons.access_time, color: Colors.black54),
                         const SizedBox(width: 8),
                         Text(
-                          _deadlineDate == null
-                              ? 'Add Deadline'
-                              : '${_deadlineDate!.day}/${_deadlineDate!.month}/${_deadlineDate!.year}',
+                          _deadlineTime == null
+                              ? 'Pick Deadline Time'
+                              : _deadlineTime!.format(context),
                           style: const TextStyle(fontSize: 16),
                         ),
                       ],

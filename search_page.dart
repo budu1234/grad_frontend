@@ -9,7 +9,7 @@ class SearchPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: CustomDrawer(jwtToken: jwtToken),
+      drawer: CustomDrawer(jwtToken: widget.jwtToken, currentPage: DrawerPage.checklist),      
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,

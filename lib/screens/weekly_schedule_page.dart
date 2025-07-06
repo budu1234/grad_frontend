@@ -109,7 +109,25 @@ class _WeeklySchedulePageState extends State<WeeklySchedulePage> {
     final hour = now.hour + now.minute / 60.0;
     if (hour >= timelineStartHour && hour <= timelineEndHour) {
       final offset = (hour - timelineStartHour) * hourHeight;
-      _verticalScrollController.jumpTo(offset.clamp(0, _verticalScrollController.position.maxScrollExtent));
+      if (_verticalScrollController.hasClients) {
+        _verticalScrollController.jumpTo(
+          offset.clamp(0, _verticalScrollController.position.maxScrollExtent),
+        );
+      }
+    }
+  }
+
+  // --- ADD THIS: Importance color mapping ---
+  Color getImportanceColor(String importance) {
+    switch (importance.toLowerCase()) {
+      case 'low':
+        return Colors.lightGreen;
+      case 'medium':
+        return Colors.green;
+      case 'high':
+        return Colors.teal;
+      default:
+        return const Color(0xFF35746C).withOpacity(0.8);
     }
   }
 
@@ -156,7 +174,7 @@ class _WeeklySchedulePageState extends State<WeeklySchedulePage> {
           SizedBox(width: 12),
         ],
       ),
-      drawer: CustomDrawer(jwtToken: widget.jwtToken),
+      drawer: CustomDrawer(jwtToken: widget.jwtToken, currentPage: DrawerPage.weeklySchedule),
       body: FutureBuilder<List<ScheduledTask>>(
         future: _futureSchedule,
         builder: (context, snapshot) {
@@ -358,6 +376,10 @@ class _WeeklySchedulePageState extends State<WeeklySchedulePage> {
                                                 final endHour = task.slotEnd.hour + task.slotEnd.minute / 60.0;
                                                 final top = (startHour - timelineStartHour) * hourHeight;
                                                 final height = (endHour - startHour) * hourHeight;
+                                                // --- Color code by importance ---
+                                                final Color importanceColor = getImportanceColor(
+                                                  (task.importance ?? 'Medium').toString(),
+                                                );
                                                 return Positioned(
                                                   top: top,
                                                   left: 0,
@@ -366,38 +388,31 @@ class _WeeklySchedulePageState extends State<WeeklySchedulePage> {
                                                   child: Container(
                                                     margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
                                                     decoration: BoxDecoration(
-                                                      color: const Color(0xFF35746C).withOpacity(0.8),
+                                                      color: importanceColor,
                                                       borderRadius: BorderRadius.circular(12),
                                                     ),
                                                     clipBehavior: Clip.hardEdge,
                                                     child: Padding(
                                                       padding: const EdgeInsets.all(6.0),
-                                                    child: SingleChildScrollView(
-                                                      physics: const NeverScrollableScrollPhysics(),
-                                                      child: Column(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                        mainAxisAlignment: MainAxisAlignment.center,
-                                                        children: [
-                                                          AutoSizeText(
-                                                            task.taskName,
-                                                            style: const TextStyle(
-                                                              color: Colors.white,
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 13,
+                                                      child: SingleChildScrollView(
+                                                        physics: const NeverScrollableScrollPhysics(),
+                                                        child: Column(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                          mainAxisAlignment: MainAxisAlignment.center,
+                                                          children: [
+                                                            AutoSizeText(
+                                                              task.taskName,
+                                                              style: const TextStyle(
+                                                                color: Colors.white,
+                                                                fontWeight: FontWeight.bold,
+                                                                fontSize: 13,
+                                                              ),
                                                             ),
-                                                          ),
-                                                          const SizedBox(height: 2),
-                                                          AutoSizeText(
-                                                            "${DateFormat('h:mma').format(task.slotStart)} - ${DateFormat('h:mma').format(task.slotEnd)}",
-                                                            style: const TextStyle(
-                                                              color: Colors.white70,
-                                                              fontSize: 11,
-                                                            ),
-                                                          ),
-                                                        ],
+                                                            const SizedBox(height: 2),
+                                                          ],
+                                                        ),
                                                       ),
-                                                    ),
                                                     ),
                                                   ),
                                                 );
